@@ -10,7 +10,7 @@ from jsonrpc_requests import Server
 from models import Transaction, TipJar
 
 config = json.load(open('config.json'))
-
+ADDRS = []
 
 class TrtlServer(Server):
     def dumps(self, data):
@@ -24,8 +24,11 @@ CONFIRMED_TXS = []
 
 
 def get_supply():
-    lastblock = daemon.getlastblockheader()
-    bo = daemon.f_block_json(hash=lastblock["block_header"]["hash"])
+    try:
+        lastblock = daemon.getlastblockheader()
+        bo = daemon.f_block_json(hash=lastblock["block_header"]["hash"])
+    except:
+        return 0.00
     return float(bo["block"]["alreadyGeneratedCoins"])/100
 
 
@@ -54,8 +57,13 @@ def gen_paymentid(address):
 
 
 def get_deposits(starting_height, session):
+    global ADDRS
     print("scanning deposits at block: ", starting_height)
-    transactionData = rpc.getTransactions(firstBlockIndex=starting_height, blockCount=1000)
+    try:
+        ADDRS = rpc.getAddresses()['addresses']
+        transactionData = rpc.getTransactions(firstBlockIndex=starting_height, blockCount=1000)
+    except:
+        return
     for item in transactionData['items']:
         for tx in item['transactions']:
             if tx['paymentId'] == '':
@@ -74,7 +82,11 @@ def get_deposits(starting_height, session):
             print("already processed: " + trs['transactionHash'])
             CONFIRMED_TXS.pop(i)
             continue
-        data = rpc.getTransaction(transactionHash=trs['transactionHash'])
+        try:
+            data = rpc.getTransaction(transactionHash=trs['transactionHash'])
+        except:
+            print("RPC failed to return data for valid hash: " + trs['transactionHash'])
+            continue
         if not trs['ready']:
             if data['unlockTime'] != 0:
                 continue
@@ -92,7 +104,7 @@ def get_deposits(starting_height, session):
             address = transfer['address']
             amount = transfer['amount']
             change = 0
-            if address in rpc.getAddresses()['addresses']:
+            if address in ADDRS:
                 if trs['pid']==balance.paymentid: # money entering tipjar, add to user balance
                     print("deposit of {}".format(amount))
                     print("Depositing to: {}".format(balance.paymentid))
@@ -118,9 +130,10 @@ def get_fee(amount):
 
 
 def build_transfer(amount, transfers, balance):
+    global ADDRS
     print("SEND PID: {}".format(balance.paymentid[0:58] + balance.withdraw))
     params = {
-        'addresses': [rpc.getAddresses()['addresses'][0]],
+        'addresses': [ADDRS[0]],
         'fee': get_fee(amount),
         'paymentId': balance.paymentid[0:58] + balance.withdraw,
         'anonymity': 3,

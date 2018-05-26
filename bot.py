@@ -29,8 +29,8 @@ client = Bot(
 
 async def wallet_watcher():
     await client.wait_until_ready()
-    start = int(rpc.getStatus()['blockCount'])-100000
-    while not client.is_closed:
+    start = int(rpc.getStatus()['blockCount'])-10000
+    while True:
         height = int(rpc.getStatus()['blockCount'])
         print("HEIGHT IS: " + str(height))
         for tx in get_deposits(start, session):
@@ -41,27 +41,31 @@ async def wallet_watcher():
                 session.rollback()
             balance = session.query(TipJar).filter(TipJar.paymentid == tx.paymentid).first()
             if not balance:  # don't do for withdrawal
-                return
+                continue
 
             good_embed = discord.Embed(title="Deposit Recieved!",colour=discord.Colour(0xD4AF37))
             good_embed.description = "Your deposit of {} {} has now been credited.".format(tx.amount/config['units'], config['symbol'])
             print("TRANSACTION PID IS: " + tx.paymentid)
             good_embed.add_field(name="New Balance", value="{0:,.2f}".format(balance.amount/config['units']))
             user = await client.get_user_info(str(balance.userid))
-            await client.send_message(user, embed=good_embed)
+            try:
+                await client.send_message(user, embed=good_embed)
+            except:
+                continue
         if start < height:
             start += 1000
         if start >= height:
             start = height-1
-        await asyncio.sleep(0.5)  # just less than the block time
+        await asyncio.sleep(1)  # just less than the block time
 
-client.loop.create_task(wallet_watcher())
 
 
 @client.event
 async def on_ready():
     print("Bot online!")
 
+
+task = client.loop.create_task(wallet_watcher())
 
 # MARKET COMMANDS ###
 @client.command()
@@ -252,7 +256,7 @@ async def updatewallet(ctx, address):
 
         good_embed.title = "Balance Update"
         good_embed.url = ""
-        good_embed.description = "New Balance: `{:0,.2f}` {1}".format(old_balance.amount / config['units'], config['symbol'])
+        good_embed.description = "New Balance: `{:,.2f}` {}".format(old_balance.amount / config['units'], config['symbol'])
         await client.send_message(ctx.message.author, embed = good_embed)
         return
     elif len(address) > 99:
@@ -298,7 +302,7 @@ async def deposit(ctx, user: discord.User=None):
     tipjar_addr = rpc.getAddresses()['addresses'][0]
     if exists:
         pid = gen_paymentid(exists.address)
-        good_embed.description = "Deposit {} to start tipping! ```transfer 3 {} <amount> -p {}```".format(config['symbol'], tipjar_addr, pid)
+        good_embed.description = "Deposit {} to start tipping! Send to address: `{}` with Payment ID: `{}`".format(config['symbol'], tipjar_addr, pid)
         balance = session.query(TipJar).filter(TipJar.paymentid == pid).first()
         if not balance:
             t = TipJar(pid, ctx.message.author.id, 0)
@@ -312,7 +316,7 @@ async def deposit(ctx, user: discord.User=None):
 
 
 @client.command(pass_context=True)
-async def balance(ctx, user: discord.User=None):
+async def balance(ctx):
     """ PMs your tipjar balance """
     err_embed = discord.Embed(title=":x:Error:x:", colour=discord.Colour(0xf44242))
     good_embed = discord.Embed(title="Your Tipjar Balance is")
@@ -371,7 +375,7 @@ async def on_reaction_add(reaction, user):
             # extract the tip amount
             # .tip {amount} {tipees}
             message_amount = message.content.split(' ')[1]
-            amount = int(round(float(message_amount))) # multiply by coin units in the actual tip command
+            amount = float(message_amount) # multiply by coin units in the actual tip command
         except:
             print("invalid tip message format ({})".format(message.content))
             return
@@ -398,6 +402,20 @@ async def on_reaction_add(reaction, user):
         reaction_tip_register(message, user)
 
 
+#@client.command(pass_context=True)
+#async def borg(ctx, amount):
+#    sender = ctx.message.author
+#    self_exists = session.query(Wallet).filter(Wallet.userid == sender.id).first()
+
+#    if not self_exists:
+#        err_embed.description = "You haven't registered a wallet!"
+#        err_embed.add_field(name="Help", value="Use `{}registerwallet <addr>` before trying to tip!".format(config['prefix']))
+#        await client.send_message(sender, embed=err_embed)
+#        return False
+#    return True
+
+
+
 @client.command(pass_context=True)
 async def tip(ctx, amount, sender):
     await _tip(ctx, amount, None, None)
@@ -412,7 +430,7 @@ async def _tip(ctx, amount,
     good_embed = discord.Embed(title="You were tipped!", colour=discord.Colour(0xD4AF37))
     request_desc = "Register with `{}registerwallet <youraddress>` to get started! To create a wallet head to https://turtlecoin.lol/wallet/".format(config['prefix'])
     request_embed = discord.Embed(title="{} wants to tip you".format(ctx.message.author.name), description=request_desc)
-
+    request_embed.add_field(name="Extra Help", value="https://github.com/turtlecoin/turtlecoin/wiki/Using-trtlbot-plus-plus")
     if not sender:  # regular tip
         sender = ctx.message.author
 
