@@ -44,7 +44,7 @@ async def wallet_watcher():
                 continue
 
             good_embed = discord.Embed(title="Deposit Recieved!",colour=discord.Colour(0xD4AF37))
-            good_embed.description = "You have sent {} {} Pixels!".format(tx.amount/config['units'], config['symbol'])
+            good_embed.description = "You have received {} {} Pixels!".format(tx.amount/config['units'], config['symbol'])
             print("TRANSACTION PID IS: " + tx.paymentid)
             good_embed.add_field(name="New Balance", value="{0:,.2f}".format(balance.amount/config['units']))
             user = await client.get_user_info(str(balance.userid))
