@@ -16,7 +16,7 @@ from utils import config, format_hash, gen_paymentid, rpc, daemon, \
 HEADERS = {'Content-Type': 'application/json'}
 
 # SETUP ###
-engine = create_engine('sqlite:///trtl.db')
+engine = create_engine('sqlite:///pixel.db')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -44,7 +44,7 @@ async def wallet_watcher():
                 continue
 
             good_embed = discord.Embed(title="Deposit Recieved!",colour=discord.Colour(0xD4AF37))
-            good_embed.description = "Your deposit of {} {} has now been credited.".format(tx.amount/config['units'], config['symbol'])
+            good_embed.description = "You have sent {} {} Pixels!".format(tx.amount/config['units'], config['symbol'])
             print("TRANSACTION PID IS: " + tx.paymentid)
             good_embed.add_field(name="New Balance", value="{0:,.2f}".format(balance.amount/config['units']))
             user = await client.get_user_info(str(balance.userid))
@@ -88,7 +88,7 @@ async def price(ctx, exchange=None):
         print(e)
         pass
     err_embed = discord.Embed(title=":x:Error:x:", colour=discord.Colour(0xf44242))
-    coindata = requests.get("https://tradeogre.com/api/v1/ticker/BTC-TRTL")
+    coindata = requests.get("https://api.altilly.com/api/public/symbol/PIXLBTC")
     btc = requests.get("https://www.bitstamp.net/api/ticker/")
     try:
         to_json = coindata.json()
@@ -96,7 +96,7 @@ async def price(ctx, exchange=None):
         err_embed.description = "The {} API is down".format(config['price_source'])
         await client.say(embed = err_embed)
         return
-    coindata_embed = discord.Embed(title = "Current Price of TRTL: {}".format(config['price_source']),
+    coindata_embed = discord.Embed(title = "Current Price of PIXL: {}".format(config['price_source']),
         url = config['price_endpoint'])
     coindata_embed.add_field(name="Low", value="{0:,.0f} sats".format(round(float(coindata.json()['low'])*100000000)), inline=True)
     coindata_embed.add_field(name="Current", value="{0:,.0f} sats".format(round(float(coindata.json()['price'])*100000000)), inline=True)
@@ -121,7 +121,7 @@ async def mcap():
 
     btc = requests.get("https://www.bitstamp.net/api/ticker/")
     supply = get_supply()
-    trtl = requests.get("https://tradeogre.com/api/v1/ticker/BTC-TRTL")
+    trtl = requests.get("https://api.altilly.com/api/public/symbol/PIXLBTC")
     try:
         trtl_json = trtl.json()
         btc_json = btc.json()
@@ -171,7 +171,7 @@ async def registerwallet(ctx, address):
     err_embed = discord.Embed(title=":x:Error:x:", colour=discord.Colour(0xf44242))
     good_embed = discord.Embed(title="{}'s Wallet".format(ctx.message.author.name),colour=discord.Colour(0xD4AF37))
     if address is None:
-        err_embed.description = "Please provide an address"
+        err_embed.description = "Please provide a Pixel address"
         await client.send_message(ctx.message.author, embed = err_embed)
         return
 
@@ -223,7 +223,7 @@ async def updatewallet(ctx, address):
     err_embed = discord.Embed(title=":x:Error:x:", colour=discord.Colour(0xf44242))
 
     if address == None:
-        err_embed.description = "Please provide an address!"
+        err_embed.description = "Please provide a Pixel address!"
         await client.send_message(ctx.message.author, embed=err_embed)
         return
 
@@ -428,9 +428,9 @@ async def _tip(ctx, amount,
 
     err_embed = discord.Embed(title=":x:Error:x:", colour=discord.Colour(0xf44242))
     good_embed = discord.Embed(title="You were tipped!", colour=discord.Colour(0xD4AF37))
-    request_desc = "Register with `{}registerwallet <youraddress>` to get started! To create a wallet head to https://turtlecoin.lol/wallet/".format(config['prefix'])
+    request_desc = "Register with `{}registerwallet <youraddress>` to get started! To create a wallet head to https://github.com/projectpixel1080/Project-Pixel/releases".format(config['prefix'])
     request_embed = discord.Embed(title="{} wants to tip you".format(ctx.message.author.name), description=request_desc)
-    request_embed.add_field(name="Extra Help", value="https://github.com/turtlecoin/turtlecoin/wiki/Using-trtlbot-plus-plus")
+    request_embed.add_field(name="Extra Help", value="https://github.com/projectpixel1080/Pixel-Tip-Bot")
     if not sender:  # regular tip
         sender = ctx.message.author
 
@@ -472,7 +472,7 @@ async def _tip(ctx, amount,
     if balance.amount < 0:
         balance.amount = 0
         session.commit()
-        err_embed.description = "Your balance was negative!"
+        err_embed.description = "NO PIXEL FOR YOU!"
         await client.send_message(sender, embed=err_embed)
 
         madk = discord.utils.get(client.get_all_members(), id='200823661928644617')
@@ -548,7 +548,7 @@ async def _tip(ctx, amount,
                     config['symbol'],
                     result['transactionHash']))
         good_embed.url = (
-            "https://blocks.turtle.link/?hash={}#blockchain_transaction"
+            "https://explorer.pixel.rocks/?hash={}#blockchain_transaction"
             .format(result['transactionHash']))
         try:
             await client.send_message(user, embed=good_embed)
